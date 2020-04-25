@@ -5,11 +5,11 @@ export PATH
 #=================================================
 #	System Required: CentOS/Debian/Ubuntu
 #	Description: Aria2
-#	Version: 1.1.10
+#	Version: 1.1.9
 #	Author: Toyo
 #	Blog: https://doub.io/shell-jc4/
 #=================================================
-sh_ver="1.1.10"
+sh_ver="1.1.9"
 filepath=$(cd "$(dirname "$0")"; pwd)
 file_1=$(echo -e "${filepath}"|awk -F "$0" '{print $1}')
 file="/root/.aria2"
@@ -66,22 +66,16 @@ check_crontab_installed_status(){
 	fi
 }
 check_pid(){
-	PID=`ps -ef| grep "aria2c"| grep -v grep| grep -v "aria2.sh"| grep -v "init.d"| grep -v "service"| awk '{print $2}'`
+	PID=`ps -ef| grep "aria2c"| grep -v grep| grep -v ".sh"| grep -v "init.d"| grep -v "service"| awk '{print $2}'`
 }
 check_new_ver(){
-	echo -e "${Info} 请输入 Aria2 版本号，格式如：[ 1.34.0 ]，获取地址：[ https://github.com/q3aql/aria2-static-builds/releases ]"
-	read -e -p "默认回车自动获取最新版本号:" aria2_new_ver
+	aria2_new_ver=$(wget --no-check-certificate -qO- https://api.github.com/repos/q3aql/aria2-static-builds/releases | grep -o '"tag_name": ".*"' |head -n 1| sed 's/"//g;s/v//g' | sed 's/tag_name: //g')
 	if [[ -z ${aria2_new_ver} ]]; then
-		aria2_new_ver=$(wget --no-check-certificate -qO- https://api.github.com/repos/q3aql/aria2-static-builds/releases | grep -o '"tag_name": ".*"' |head -n 1| sed 's/"//g;s/v//g' | sed 's/tag_name: //g')
-		if [[ -z ${aria2_new_ver} ]]; then
-			echo -e "${Error} Aria2 最新版本获取失败，请手动获取最新版本号[ https://github.com/q3aql/aria2-static-builds/releases ]"
-			read -e -p "请输入版本号 [ 格式如 1.34.0 ] :" aria2_new_ver
-			[[ -z "${aria2_new_ver}" ]] && echo "取消..." && exit 1
-		else
-			echo -e "${Info} 检测到 Aria2 最新版本为 [ ${aria2_new_ver} ]"
-		fi
+		echo -e "${Error} Aria2 最新版本获取失败，请手动获取最新版本号[ https://github.com/q3aql/aria2-static-builds/releases ]"
+		stty erase '^H' && read -p "请输入版本号 [ 格式如 1.33.1 ] :" aria2_new_ver
+		[[ -z "${aria2_new_ver}" ]] && echo "取消..." && exit 1
 	else
-		echo -e "${Info} 即将准备下载 Aria2 版本为 [ ${aria2_new_ver} ]"
+		echo -e "${Info} 检测到 Aria2 最新版本为 [ ${aria2_new_ver} ]"
 	fi
 }
 check_ver_comparison(){
@@ -89,7 +83,7 @@ check_ver_comparison(){
 	[[ -z ${aria2_now_ver} ]] && echo -e "${Error} Brook 当前版本获取失败 !" && exit 1
 	if [[ "${aria2_now_ver}" != "${aria2_new_ver}" ]]; then
 		echo -e "${Info} 发现 Aria2 已有新版本 [ ${aria2_new_ver} ](当前版本：${aria2_now_ver})"
-		read -e -p "是否更新(会中断当前下载任务，请注意) ? [Y/n] :" yn
+		stty erase '^H' && read -p "是否更新(会中断当前下载任务，请注意) ? [Y/n] :" yn
 		[[ -z "${yn}" ]] && yn="y"
 		if [[ $yn == [Yy] ]]; then
 			check_pid
@@ -105,17 +99,20 @@ Download_aria2(){
 	update_dl=$1
 	cd "/usr/local"
 	#echo -e "${bit}"
-	if [[ ${bit} == "x86_64" ]]; then
-		bit="64bit"
-	elif [[ ${bit} == "i386" || ${bit} == "i686" ]]; then
-		bit="32bit"
+	if [[ ${bit} == "armv7l" ]]; then
+		wget -N --no-check-certificate "https://github.com/q3aql/aria2-static-builds/releases/download/v${aria2_new_ver}/aria2-${aria2_new_ver}-linux-gnu-arm-rbpi-build1.tar.bz2"
+		Aria2_Name="aria2-${aria2_new_ver}-linux-gnu-arm-rbpi-build1"
+	elif [[ ${bit} == "aarch64" ]]; then
+		wget -N --no-check-certificate "https://github.com/q3aql/aria2-static-builds/releases/download/v${aria2_new_ver}/aria2-${aria2_new_ver}-linux-gnu-arm-rbpi-build1.tar.bz2"
+		Aria2_Name="aria2-${aria2_new_ver}-linux-gnu-arm-rbpi-build1"
+	elif [[ ${bit} == "x86_64" ]]; then
+		wget -N --no-check-certificate "https://github.com/q3aql/aria2-static-builds/releases/download/v${aria2_new_ver}/aria2-${aria2_new_ver}-linux-gnu-64bit-build1.tar.bz2"
+		Aria2_Name="aria2-${aria2_new_ver}-linux-gnu-64bit-build1"
 	else
-		bit="arm-rbpi"
+		wget -N --no-check-certificate "https://github.com/q3aql/aria2-static-builds/releases/download/v${aria2_new_ver}/aria2-${aria2_new_ver}-linux-gnu-32bit-build1.tar.bz2"
+		Aria2_Name="aria2-${aria2_new_ver}-linux-gnu-32bit-build1"
 	fi
-	wget -N --no-check-certificate "https://github.com/q3aql/aria2-static-builds/releases/download/v${aria2_new_ver}/aria2-${aria2_new_ver}-linux-gnu-${bit}-build1.tar.bz2"
-	Aria2_Name="aria2-${aria2_new_ver}-linux-gnu-${bit}-build1"
-	
-	[[ ! -s "${Aria2_Name}.tar.bz2" ]] && echo -e "${Error} Aria2 压缩包下载失败 !" && exit 1
+	[[ ! -e "${Aria2_Name}.tar.bz2" ]] && echo -e "${Error} Aria2 压缩包下载失败 !" && exit 1
 	tar jxvf "${Aria2_Name}.tar.bz2"
 	[[ ! -e "/usr/local/${Aria2_Name}" ]] && echo -e "${Error} Aria2 解压失败 !" && rm -rf "${Aria2_Name}.tar.bz2" && exit 1
 	[[ ${update_dl} = "update" ]] && rm -rf "${Folder}"
@@ -130,23 +127,23 @@ Download_aria2(){
 }
 Download_aria2_conf(){
 	mkdir "${file}" && cd "${file}"
-	wget --no-check-certificate -N "https://raw.githubusercontent.com/ToyoDAdoubi/doubi/master/other/Aria2/aria2.conf"
+	wget --no-check-certificate -N "https://www.moerats.com/usr/shell/Aria2/aria2.conf"
 	[[ ! -s "aria2.conf" ]] && echo -e "${Error} Aria2 配置文件下载失败 !" && rm -rf "${file}" && exit 1
-	wget --no-check-certificate -N "https://raw.githubusercontent.com/ToyoDAdoubi/doubi/master/other/Aria2/dht.dat"
+	wget --no-check-certificate -N "https://www.moerats.com/usr/shell/Aria2/dht.dat"
 	[[ ! -s "dht.dat" ]] && echo -e "${Error} Aria2 DHT文件下载失败 !" && rm -rf "${file}" && exit 1
 	echo '' > aria2.session
 	sed -i 's/^rpc-secret=DOUBIToyo/rpc-secret='$(date +%s%N | md5sum | head -c 20)'/g' ${aria2_conf}
 }
 Service_aria2(){
 	if [[ ${release} = "centos" ]]; then
-		if ! wget --no-check-certificate https://raw.githubusercontent.com/ToyoDAdoubi/doubi/master/service/aria2_centos -O /etc/init.d/aria2; then
+		if ! wget --no-check-certificate https://www.moerats.com/usr/shell/Aria2/aria2_centos -O /etc/init.d/aria2; then
 			echo -e "${Error} Aria2服务 管理脚本下载失败 !" && exit 1
 		fi
 		chmod +x /etc/init.d/aria2
 		chkconfig --add aria2
 		chkconfig aria2 on
 	else
-		if ! wget --no-check-certificate https://raw.githubusercontent.com/ToyoDAdoubi/doubi/master/service/aria2_debian -O /etc/init.d/aria2; then
+		if ! wget --no-check-certificate https://www.moerats.com/usr/shell/Aria2/aria2_debian -O /etc/init.d/aria2; then
 			echo -e "${Error} Aria2服务 管理脚本下载失败 !" && exit 1
 		fi
 		chmod +x /etc/init.d/aria2
@@ -158,10 +155,10 @@ Installation_dependency(){
 	if [[ ${release} = "centos" ]]; then
 		yum update
 		yum -y groupinstall "Development Tools"
-		yum install nano -y
+		yum install vim -y
 	else
 		apt-get update
-		apt-get install nano build-essential -y
+		apt-get install vim build-essential -y
 	fi
 }
 Install_aria2(){
@@ -214,7 +211,7 @@ Set_aria2(){
  ${Green_font_prefix}3.${Font_color_suffix}  修改 Aria2 文件下载位置
  ${Green_font_prefix}4.${Font_color_suffix}  修改 Aria2 密码+端口+文件下载位置
  ${Green_font_prefix}5.${Font_color_suffix}  手动 打开配置文件修改" && echo
-	read -e -p "(默认: 取消):" aria2_modify
+	stty erase '^H' && read -p "(默认: 取消):" aria2_modify
 	[[ -z "${aria2_modify}" ]] && echo "已取消..." && exit 1
 	if [[ ${aria2_modify} == "1" ]]; then
 		Set_aria2_RPC_passwd
@@ -241,7 +238,7 @@ Set_aria2_RPC_passwd(){
 		aria2_passwd_1=${aria2_passwd}
 	fi
 	echo -e "请输入要设置的 Aria2 RPC密码(旧密码为：${Green_font_prefix}${aria2_passwd_1}${Font_color_suffix})"
-	read -e -p "(默认密码: 随机生成 密码请不要包含等号 = 和井号 #):" aria2_RPC_passwd
+	stty erase '^H' && read -p "(默认密码: 随机生成 密码请不要包含等号 = 和井号 #):" aria2_RPC_passwd
 	echo
 	[[ -z "${aria2_RPC_passwd}" ]] && aria2_RPC_passwd=$(date +%s%N | md5sum | head -c 20)
 	if [[ "${aria2_passwd}" != "${aria2_RPC_passwd}" ]]; then
@@ -281,7 +278,7 @@ Set_aria2_RPC_port(){
 		aria2_port_1=${aria2_port}
 	fi
 	echo -e "请输入要设置的 Aria2 RPC端口(旧端口为：${Green_font_prefix}${aria2_port_1}${Font_color_suffix})"
-	read -e -p "(默认端口: 6800):" aria2_RPC_port
+	stty erase '^H' && read -p "(默认端口: 6800):" aria2_RPC_port
 	echo
 	[[ -z "${aria2_RPC_port}" ]] && aria2_RPC_port="6800"
 	if [[ "${aria2_port}" != "${aria2_RPC_port}" ]]; then
@@ -327,7 +324,7 @@ Set_aria2_RPC_dir(){
 		aria2_dir_1=${aria2_dir}
 	fi
 	echo -e "请输入要设置的 Aria2 文件下载位置(旧位置为：${Green_font_prefix}${aria2_dir_1}${Font_color_suffix})"
-	read -e -p "(默认位置: /usr/local/caddy/www/aria2/Download):" aria2_RPC_dir
+	stty erase '^H' && read -p "(默认位置: /usr/local/caddy/www/aria2/Download):" aria2_RPC_dir
 	[[ -z "${aria2_RPC_dir}" ]] && aria2_RPC_dir="/usr/local/caddy/www/aria2/Download"
 	echo
 	if [[ -d "${aria2_RPC_dir}" ]]; then
@@ -372,14 +369,14 @@ Set_aria2_RPC_passwd_port_dir(){
 Set_aria2_vim_conf(){
 	Read_config
 	aria2_port_old=${aria2_port}
-	echo -e "${Tip} 手动修改配置文件须知（nano 文本编辑器详细使用教程：https://doub.io/linux-jc13/）：
-${Green_font_prefix}1.${Font_color_suffix} 配置文件中含有中文注释，如果你的 服务器系统 或 SSH工具 不支持中文显示，将会乱码(请本地编辑)。
-${Green_font_prefix}2.${Font_color_suffix} 一会自动打开配置文件后，就可以开始手动编辑文件了。
-${Green_font_prefix}3.${Font_color_suffix} 如果要退出并保存文件，那么按 ${Green_font_prefix}Ctrl+X键${Font_color_suffix} 后，输入 ${Green_font_prefix}y${Font_color_suffix} 后，再按一下 ${Green_font_prefix}回车键${Font_color_suffix} 即可。
-${Green_font_prefix}4.${Font_color_suffix} 如果要退出并不保存文件，那么按 ${Green_font_prefix}Ctrl+X键${Font_color_suffix} 后，输入 ${Green_font_prefix}n${Font_color_suffix} 即可。
-${Green_font_prefix}5.${Font_color_suffix} 如果你想在本地编辑配置文件，那么配置文件位置： ${Green_font_prefix}/root/.aria2/aria2.conf${Font_color_suffix} (注意是隐藏目录) 。" && echo
-	read -e -p "如果已经理解 nano 使用方法，请按任意键继续，如要取消请使用 Ctrl+C 。" var
-	nano "${aria2_conf}"
+	echo -e "${Tip} 手动修改配置文件须知（VIM 编辑器）：
+${Green_font_prefix}1.${Font_color_suffix} 配置文件中含有中文注释，如果你的服务器或SSH工具不支持中文现在，将会乱码(请本地编辑)。
+${Green_font_prefix}2.${Font_color_suffix} 打开配置文件后，按 ${Green_font_prefix}I键${Font_color_suffix} 进入编辑模式(左下角显示 ${Green_font_prefix}-- INSERT --${Font_color_suffix})，然后就可以编辑文件了，
+   编辑文件完成后，按 ${Green_font_prefix}Esc键${Font_color_suffix} 退出编辑模式，然后输入 ${Green_font_prefix}:wq${Font_color_suffix} (半角 小写)回车，即保存并退出。
+${Green_font_prefix}3.${Font_color_suffix} 如果你不想要保存，那么按 ${Green_font_prefix}Esc键${Font_color_suffix} 退出编辑模式，然后输入 ${Green_font_prefix}:q!${Font_color_suffix} (半角 小写)回车，即不保存退出。
+${Green_font_prefix}4.${Font_color_suffix} 如果你打算在本地编辑配置文件，那么配置文件位置： ${Green_font_prefix}/root/.aria2/aria2.conf${Font_color_suffix} (注意是隐藏目录) 。" && echo
+	stty erase '^H' && read -p "如果理解 VIM 使用方法，请按任意键继续，如要取消请使用 Ctrl+C 。" var
+	vim ${aria2_conf}
 	Read_config
 	if [[ ${aria2_port_old} != ${aria2_port} ]]; then
 		aria2_RPC_port=${aria2_port}
@@ -429,7 +426,7 @@ View_Aria2(){
 }
 View_Log(){
 	[[ ! -e ${aria2_log} ]] && echo -e "${Error} Aria2 日志文件不存在 !" && exit 1
-	echo && echo -e "${Tip} 按 ${Red_font_prefix}Ctrl+C${Font_color_suffix} 终止查看日志" && echo -e "如果需要查看完整日志内容，请用 ${Red_font_prefix}cat ${aria2_log}${Font_color_suffix} 命令。" && echo
+	echo && echo -e "${Tip} 按 ${Red_font_prefix}Ctrl+C${Font_color_suffix} 终止查看日志" && echo
 	tail -f ${aria2_log}
 }
 Update_bt_tracker(){
@@ -439,7 +436,7 @@ Update_bt_tracker(){
 	if [[ -z "${crontab_update_status}" ]]; then
 		echo && echo -e "当前自动更新模式: ${Red_font_prefix}未开启${Font_color_suffix}" && echo
 		echo -e "确定要开启 ${Green_font_prefix}Aria2 自动更新 BT-Tracker服务器${Font_color_suffix} 功能吗？(一般情况下会加强BT下载效果)[Y/n]"
-		read -e -p "注意：该功能会定时重启 Aria2！(默认: y):" crontab_update_status_ny
+		stty erase '^H' && read -p "注意：该功能会定时重启 Aria2！(默认: y):" crontab_update_status_ny
 		[[ -z "${crontab_update_status_ny}" ]] && crontab_update_status_ny="y"
 		if [[ ${crontab_update_status_ny} == [Yy] ]]; then
 			crontab_update_start
@@ -449,7 +446,7 @@ Update_bt_tracker(){
 	else
 		echo && echo -e "当前自动更新模式: ${Green_font_prefix}已开启${Font_color_suffix}" && echo
 		echo -e "确定要关闭 ${Red_font_prefix}Aria2 自动更新 BT-Tracker服务器${Font_color_suffix} 功能吗？(一般情况下会加强BT下载效果)[y/N]"
-		read -e -p "注意：该功能会定时重启 Aria2！(默认: n):" crontab_update_status_ny
+		stty erase '^H' && read -p "注意：该功能会定时重启 Aria2！(默认: n):" crontab_update_status_ny
 		[[ -z "${crontab_update_status_ny}" ]] && crontab_update_status_ny="n"
 		if [[ ${crontab_update_status_ny} == [Yy] ]]; then
 			crontab_update_stop
@@ -461,7 +458,7 @@ Update_bt_tracker(){
 crontab_update_start(){
 	crontab -l > "$file_1/crontab.bak"
 	sed -i "/aria2.sh update-bt-tracker/d" "$file_1/crontab.bak"
-	echo -e "\n0 3 * * 1 /bin/bash $file_1/aria2.sh update-bt-tracker" >> "$file_1/crontab.bak"
+	echo -e "\n0 3 * * * /bin/bash $file_1/aria2.sh update-bt-tracker" >> "$file_1/crontab.bak"
 	crontab "$file_1/crontab.bak"
 	rm -f "$file_1/crontab.bak"
 	cron_config=$(crontab -l | grep "aria2.sh update-bt-tracker")
@@ -507,7 +504,7 @@ Uninstall_aria2(){
 	check_installed_status "un"
 	echo "确定要卸载 Aria2 ? (y/N)"
 	echo
-	read -e -p "(默认: n):" unyn
+	stty erase '^H' && read -p "(默认: n):" unyn
 	[[ -z ${unyn} ]] && unyn="n"
 	if [[ ${unyn} == [Yy] ]]; then
 		crontab -l > "$file_1/crontab.bak"
@@ -562,14 +559,31 @@ Set_iptables(){
 	fi
 }
 Update_Shell(){
-	sh_new_ver=$(wget --no-check-certificate -qO- -t1 -T3 "https://raw.githubusercontent.com/ToyoDAdoubi/doubi/master/aria2.sh"|grep 'sh_ver="'|awk -F "=" '{print $NF}'|sed 's/\"//g'|head -1) && sh_new_type="github"
-	[[ -z ${sh_new_ver} ]] && echo -e "${Error} 无法链接到 Github !" && exit 0
-	if [[ -e "/etc/init.d/aria2" ]]; then
-		rm -rf /etc/init.d/aria2
-		Service_aria2
+	echo -e "当前版本为 [ ${sh_ver} ]，开始检测最新版本..."
+	sh_new_ver=$(wget --no-check-certificate -qO- "https://softs.loan/Bash/aria2.sh"|grep 'sh_ver="'|awk -F "=" '{print $NF}'|sed 's/\"//g'|head -1) && sh_new_type="softs"
+	[[ -z ${sh_new_ver} ]] && sh_new_ver=$(wget --no-check-certificate -qO- "https://raw.githubusercontent.com/ToyoDAdoubi/doubi/master/aria2.sh"|grep 'sh_ver="'|awk -F "=" '{print $NF}'|sed 's/\"//g'|head -1) && sh_new_type="github"
+	[[ -z ${sh_new_ver} ]] && echo -e "${Error} 检测最新版本失败 !" && exit 0
+	if [[ ${sh_new_ver} != ${sh_ver} ]]; then
+		echo -e "发现新版本[ ${sh_new_ver} ]，是否更新？[Y/n]"
+		stty erase '^H' && read -p "(默认: y):" yn
+		[[ -z "${yn}" ]] && yn="y"
+		if [[ ${yn} == [Yy] ]]; then
+			if [[ -e "/etc/init.d/aria2" ]]; then
+				rm -rf /etc/init.d/aria2
+				Service_aria2
+			fi
+			if [[ ${sh_new_type} == "softs" ]]; then
+				wget -N --no-check-certificate https://softs.loan/Bash/aria2.sh && chmod +x aria2.sh
+			else
+				wget -N --no-check-certificate https://raw.githubusercontent.com/ToyoDAdoubi/doubi/master/aria2.sh && chmod +x aria2.sh
+			fi
+			echo -e "脚本已更新为最新版本[ ${sh_new_ver} ] !"
+		else
+			echo && echo "	已取消..." && echo
+		fi
+	else
+		echo -e "当前已是最新版本[ ${sh_new_ver} ] !"
 	fi
-	wget -N --no-check-certificate "https://raw.githubusercontent.com/ToyoDAdoubi/doubi/master/aria2.sh" && chmod +x aria2.sh
-	echo -e "脚本已更新为最新版本[ ${sh_new_ver} ] !(注意：因为更新方式为直接覆盖当前运行的脚本，所以可能下面会提示一些报错，无视即可)" && exit 0
 }
 action=$1
 if [[ "${action}" == "update-bt-tracker" ]]; then
@@ -604,7 +618,7 @@ else
 	echo -e " 当前状态: ${Red_font_prefix}未安装${Font_color_suffix}"
 fi
 echo
-read -e -p " 请输入数字 [0-10]:" num
+stty erase '^H' && read -p " 请输入数字 [0-10]:" num
 case "$num" in
 	0)
 	Update_Shell
